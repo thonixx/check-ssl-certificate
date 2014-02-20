@@ -9,7 +9,7 @@ POP3S 993
 IMAPS 995
 
 ### Installation
-After checkout you can run the command as usual with ./check-ssl-certificate.  
+After checkout you can run the command as usual with ```./check-ssl-certificate``` from the directory where the script is stored.  
 Without any option/argument you will get the help output.  
   
 If you would like to run the command without an absolute path symlink to ```/usr/local/bin``` or any other directory from your ```$PATH``` variable:  
