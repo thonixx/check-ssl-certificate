@@ -1,0 +1,279 @@
+#!/bin/bash
+#
+# made by thonixx
+# created at 11th of July 2013
+# modified many times since then
+
+#######
+# TRAPS
+#######
+
+# trap for missing sys bins
+trap 'echo "Error: Some of the required packages not installed: openssl, host."; exit 1' SIGUSR1
+
+# temporary files
+# this one is used for the temporary location of the curl output
+tmpcrtip="$(mktemp "/tmp/tmpcrtip.XXXXXX")"
+tmpcrtsni="$(mktemp "/tmp/tmpcrtsni.XXXXXX")"
+# this one is used for the temporary certificate file tmpcrtsni="$(mktemp "/tmp/tmpcrtsni.XXXXXX")"
+# trap for removing temp file
+trap 'rm -f "$tmpcrtip" "$tmpcrtsni"' EXIT INT HUP SIGHUP SIGINT SIGTERM
+
+###########
+# END TRAPS
+###########
+
+# OK, now we use getopt from util-linux
+usage ()
+{
+echo "
+Usage: ${0##*/}	-H/--hostname hostname [-p/--port portnumber]
+		[-h/--help]
+
+Overview:
+	Print which SSL certificate is used for the secure connection to the given host.
+
+	The options:
+	****
+	-H/--hostname server	IP address or hostname to connect to
+	-p/--port port number	Port number to connect to (default: 443)
+
+	I need help:
+	****
+        -h/--help		this help
+"
+}
+PARAM=`getopt -o hp:H: --long help,port:,hostname: -- "$@"`
+
+# function valid_ip
+# source: http://www.linuxjournal.com/content/validating-ip-address-bash-script
+function valid_ip()
+{
+    local  ip=$1
+    local  stat=1
+
+    if [[ $ip =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+        OIFS=$IFS
+        IFS='.'
+        ip=($ip)
+        IFS=$OIFS
+        [[ ${ip[0]} -le 255 && ${ip[1]} -le 255 \
+            && ${ip[2]} -le 255 && ${ip[3]} -le 255 ]]
+        stat=$?
+    fi
+    return $stat
+}
+
+# ok I'm honest.. This part is copied from an existing script of a friend
+eval set -- "$PARAM"
+while true ; do
+        case "$1" in
+                -H|--hostname) hostname="${2}" ; shift 2 ;;
+                -p|--port) port="${2}" ; shift 2 ;;
+                -h|--help) usage ; exit 0 ;;
+                --) shift ; break ;;
+                *) echo -e "Some weird error..\nI'm sorry.\nSomething with parameters is going wrong." ; exit 1 ;;
+        esac
+done
+
+if [ -z "$hostname" ]; then usage; exit 0; fi
+
+# first some system binaries
+OPENSSL=$(which openssl || kill -10 $$)
+HOST=$(which host || kill -10 $$)
+BASH=$(which bash || kill -10 $$)
+DIG=$(which dig || kill -10 $$)
+
+#################################
+# now lets begin with the script
+#################################
+
+# we need port and ip
+if [ -z "$port" ]
+then
+	port="443"
+fi
+
+# grep for possible ip in argument
+hostarg="$(echo $hostname | egrep -o "[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}" | head -n 1)"
+# decide if an ip is given already or not
+if [ -z "$hostarg" ]
+then
+	# get the ip address with command host
+	if [ "$($HOST -t a $hostname | grep "is an alias for ")" ]
+	then
+		# get the final target alias
+		final_alias="$($HOST -t a $hostname | grep "is an alias for" | tail -n 1 | sed "s/ is an alias for /\&/g" | awk -F\& '{print $2}')"
+		final_alias_ip="$($DIG +short a $final_alias | head -n 1)"
+
+		# print notices
+		echo "Notice: There is a CNAME on the hostname."
+		echo "Notice: Using the IP address from the CNAME $final_alias ($final_alias_ip)"
+		echo ""
+
+		# set the ip to the alias ip
+		ip="$final_alias_ip"
+	else
+		# set the ip which you get from the host command
+		ip="$($HOST -t a $hostname | head -n 1 | grep -Eo "has address [0-9\.]{8,15}" | sed "s/has address //g")"
+	fi
+else
+	ip="$hostarg"
+fi
+
+# check if ip
+if [ "$ip" == "$hostname" ]
+then
+	iponly="true"
+else
+	iponly="false"
+fi
+
+# check if ip exists
+if [ -z "$ip" ]
+then
+	echo "There was no IP in the DNS record for $hostname."
+	exit 1
+fi
+
+# storing the certificate without SNI
+osslIPout=$(timeout 5 $BASH -c "echo 'EOT' | $OPENSSL s_client -connect $ip:$port 2>&1")
+# storing the certificate with SNI
+[ "$iponly" == "false" ] && osslSNIout=$(timeout 5 $BASH -c "echo 'EOT' | $OPENSSL s_client -servername $hostname -connect $hostname:$port 2>&1")
+
+# check if output contains something about refused connection
+if [[ "$osslIPout" =~ .*connect:\ Connection\ refused.* ]] || [[ "$osslSNIout" =~ .*connect:\ Connection\ refused.* ]] || [[ "$osslIPout" =~ .*:error:.* ]] || [[ "$osslSNIout" =~ .*:error:.* ]]
+then
+	# print if connection failed
+	echo -n "$(tput setaf 1)Connection failed or resulted in an error (IP: $ip, Host: "
+	# print ip (and hostname)
+	if [ "$hostname" ]
+	then
+		echo -n "$hostname"
+	else
+		echo -n "none"
+	fi
+	# finish statement
+	echo ", Port: $port)!$(tput sgr0)"
+	[[ -z $(echo -n "${DOMAIN}" | grep -oP "(?=^.{4,255}$)(^((?!-)[a-zA-Z0-9-]{1,63}(?<!-)\.)+[a-zA-Z]{2,63}$)") ]] && echo "$(tput setaf 3)Try again with $(tput sgr 0 1; tput setaf 3; tput bold)FQDN$(tput sgr0)$(tput setaf 3) hostname.$(tput sgr0)"
+	exit 1
+else
+	# if no refused connection, go forward with certificate
+	echo "$osslIPout" | sed -n '/^-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/p' > "$tmpcrtip"
+	echo "$osslSNIout" | sed -n '/^-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/p' > "$tmpcrtsni"
+
+	# check if something is inside the cert files
+	nosni="false"
+	if [ "$(wc -l $tmpcrtip | awk '{print $1}' )" -lt 3 ]
+	then
+		echo "There was no certificate on the IP."
+		exit 1
+	fi
+	if [ "$(wc -l $tmpcrtsni | awk '{print $1}' )" -lt 3 ]
+        then    
+                echo "There was no certificate with SNI."
+		nosni="true"
+        fi
+fi
+
+# get the certificate CN from certificate on the IP
+ipdomain=$($OPENSSL x509 -in $tmpcrtip -noout -text | grep --color=never "Subject:" | egrep --color=never -o "CN=(.*),*" | sed "s/CN=//" | awk -F/ '{print $1}')
+ipdomainMD=$($OPENSSL x509 -in $tmpcrtip -noout -text | sed -n '/X509v3 Subject Alternative Name/,+1p' | sed -n 's/^\s*//g;2p')
+# use sni for the common name and certificate
+[ "$iponly" == "false" ] || [ "$nosni" == "false" ] && snidomain=$($OPENSSL x509 -in $tmpcrtsni -noout -text | grep --color=never "Subject:" | egrep --color=never -o "CN=(.*),*" | sed "s/CN=//" | awk -F/ '{print $1}')
+[ "$iponly" == "false" ] || [ "$nosni" == "false" ] && snidomainMD=$($OPENSSL x509 -in $tmpcrtsni -noout -text | sed -n '/X509v3 Subject Alternative Name/,+1p' | sed -n 's/^\s*//g;2p')
+
+# get the dates of the certificate
+ipdate=$($OPENSSL x509 -in $tmpcrtip -noout -text | egrep --color=never "Not (After|Before)" | cut -d : -f 2- | sed "s/^ *//g")
+# get the dates of the certificate with SNI
+[ "$iponly" == "false" ] && snidate=$($OPENSSL x509 -in $tmpcrtip -noout -text | egrep --color=never "Not (After|Before)" | cut -d : -f 2- | sed "s/^ *//g")
+
+# print the domain without SNI
+echo "Domain on IP: $ipdomain ($ip)"
+# print additonal domains
+[ "$snidomainMD" ] && echo "Covered domains: $ipdomainMD"
+echo "----"
+
+# to set the old ifs at the end
+OLDIFS=$IFS
+# used for the check in the for loop
+i="0"
+# print dates
+IFS=$'\n'
+# go through the two lines of dates
+for line in $ipdate
+do
+	# check if i is set 0
+	if [ "$i" = "0" ]
+	then
+		# then decide wether to echo start date
+		echo -n "Start date: "
+	else
+		# or echo end date
+		echo -n "End date: "
+	fi
+
+	# print the line with the date
+	echo $line
+	
+	# another check to reverse set the variable
+	if [ "$i" = "0" ]
+	then
+		i="1"
+	else
+		i="0"
+	fi
+done
+# set the old ifs
+IFS=$OLDIFS
+
+# now the SNI part
+
+if [ "$iponly" == "false" ] && [ "$nosni" == "false" ]
+then
+	# new line
+	echo ""
+	echo ""
+
+	# print the SNI domain
+	echo "Domain with SNI: $snidomain"
+	# print additonal domains
+	[ "$snidomainMD" ] && echo "Covered domains: $snidomainMD"
+	echo "----"
+
+	# to set the old ifs at the end
+	OLDIFS=$IFS
+	# used for the check in the for loop
+	i="0"
+	# print dates
+	IFS=$'\n'
+	# go through the two lines of dates
+	for line in $snidate
+	do
+		# check if i is set 0
+		if [ "$i" = "0" ]
+		then
+			# then decide wether to echo start date
+			echo -n "Start date: "
+		else
+			# or echo end date
+			echo -n "End date: "
+		fi
+
+		# print the line with the date
+		echo $line
+		
+		# another check to reverse set the variable
+		if [ "$i" = "0" ]
+		then
+			i="1"
+		else
+			i="0"
+		fi
+	done
+	# set the old ifs
+	IFS=$OLDIFS
+fi
+
+# all okay
+exit 0
