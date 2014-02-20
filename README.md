@@ -1,4 +1,4 @@
-### check-ssl-certificate
+### Script check-ssl-certificate
 Detect which SSL certificate is behind a specific IP or hostname.  
 Additionally you can specify a custom port to check i.e. POP3S, SMTPS and so on.
 
@@ -7,6 +7,15 @@ HTTPS 443
 SMTPS 465  
 POP3S 993  
 IMAPS 995
+
+### Installation
+After checkout you can run the command as usual with ./check-ssl-certificate.  
+Without any option/argument you will get the help output.  
+  
+If you would like to run the command without an absolute path symlink to ```/usr/local/bin``` or any other directory from your ```$PATH``` variable:  
+```
+ln -s /path/to/git/check-ssl-certificate/check-ssl-certificate /usr/local/bin/
+```
 
 ### Usage and command options
 ```
