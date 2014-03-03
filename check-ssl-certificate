@@ -186,7 +186,7 @@ ipdomainMD=$($OPENSSL x509 -in $tmpcrtip -noout -text | sed -n '/X509v3 Subject 
 # get the dates of the certificate
 ipdate=$($OPENSSL x509 -in $tmpcrtip -noout -text | egrep --color=never "Not (After|Before)" | cut -d : -f 2- | sed "s/^ *//g")
 # get the dates of the certificate with SNI
-[ "$iponly" == "false" ] && snidate=$($OPENSSL x509 -in $tmpcrtip -noout -text | egrep --color=never "Not (After|Before)" | cut -d : -f 2- | sed "s/^ *//g")
+[ "$iponly" == "false" ] && snidate=$($OPENSSL x509 -in $tmpcrtsni -noout -text | egrep --color=never "Not (After|Before)" | cut -d : -f 2- | sed "s/^ *//g")
 
 # print the domain without SNI
 echo "Domain on IP: $ipdomain ($ip)"
@@ -198,6 +198,8 @@ echo "----"
 OLDIFS=$IFS
 # used for the check in the for loop
 i="0"
+# reset variable $line
+line=""
 # print dates
 IFS=$'\n'
 # go through the two lines of dates
@@ -229,6 +231,14 @@ IFS=$OLDIFS
 
 # now the SNI part
 
+# to set the old ifs at the end
+OLDIFS=$IFS
+# used for the check in the for loop
+i="0"
+# reset variable $line
+line=""
+# print dates
+IFS=$'\n'
 if [ "$iponly" == "false" ] && [ "$nosni" == "false" ]
 then
 	# new line
