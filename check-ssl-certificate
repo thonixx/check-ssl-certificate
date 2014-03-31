@@ -250,7 +250,7 @@ then
 	# print the SNI domain
 	echo "Domain with SNI: $snidomain"
 	# print additonal domains
-	[ "$snidomainMD" ] && echo "Additional domains: $(echo "$snidomainMD" | sed 's/DNS://g' | sed "s/$snidomain//g" | sed 's/^, //g')"
+	[ "$snidomainMD" ] && echo "Additional domain(s): $(echo "$snidomainMD" | sed 's/DNS://g' | sed "s/$snidomain//g" | sed 's/^, //g')"
 	echo "----"
 
 	# to set the old ifs at the end
