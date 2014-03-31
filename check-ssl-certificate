@@ -169,8 +169,11 @@ else
 		echo "There was no certificate on the IP."
 		exit 1
 	fi
-	if [ "$(wc -l $tmpcrtsni | awk '{print $1}' )" -lt 3 ]
-        then    
+	if [ "$iponly" == "true" ]
+	then
+		nosni="true"
+	elif [ "$(wc -l $tmpcrtsni | awk '{print $1}' )" -lt 3 ] && [ "$iponly" == "false" ]
+	then
                 echo "There was no certificate with SNI."
 		nosni="true"
         fi
@@ -184,14 +187,16 @@ ipdomainMD=$($OPENSSL x509 -in $tmpcrtip -noout -text | sed -n '/X509v3 Subject 
 [ "$iponly" == "false" ] || [ "$nosni" == "false" ] && snidomainMD=$($OPENSSL x509 -in $tmpcrtsni -noout -text | sed -n '/X509v3 Subject Alternative Name/,+1p' | sed -n 's/^\s*//g;2p')
 
 # get the dates of the certificate
-ipdate=$($OPENSSL x509 -in $tmpcrtip -noout -text | egrep --color=never "Not (After|Before)" | cut -d : -f 2- | sed "s/^ *//g")
+ipdate=$($OPENSSL x509 -in $tmpcrtip -noout -dates | cut -d = -f 2- | sed "s/^ *//g")
+ipdateHuman=$(echo "$ipdate" | xargs -n 1 -I {} date -d '{}' '+%B %d, %Y (%H:%M %Z)')
+
 # get the dates of the certificate with SNI
-[ "$iponly" == "false" ] && snidate=$($OPENSSL x509 -in $tmpcrtsni -noout -text | egrep --color=never "Not (After|Before)" | cut -d : -f 2- | sed "s/^ *//g")
+[ "$iponly" == "false" ] && snidate=$($OPENSSL x509 -in $tmpcrtsni -noout -dates | cut -d = -f 2- | sed "s/^ *//g") && snidateHuman=$(echo "$snidate" | xargs -n 1 -I {} date -d '{}' '+%B %d, %Y (%H:%M %Z)')
 
 # print the domain without SNI
 echo "Domain on IP: $ipdomain ($ip)"
 # print additonal domains
-[ "$snidomainMD" ] && echo "Covered domains: $ipdomainMD"
+[ "$ipdomainMD" ] && echo "Additional domain(s): $(echo "$ipdomainMD" | sed 's/DNS://g' | sed "s/$ipdomain//g" | sed 's/^, //g')"
 echo "----"
 
 # to set the old ifs at the end
@@ -203,21 +208,18 @@ line=""
 # print dates
 IFS=$'\n'
 # go through the two lines of dates
-for line in $ipdate
+for line in $ipdateHuman
 do
 	# check if i is set 0
 	if [ "$i" = "0" ]
 	then
 		# then decide wether to echo start date
-		echo -n "Start date: "
+		printf "%-12s %20s\n" "Start date:" "$line"
 	else
 		# or echo end date
-		echo -n "End date: "
+		printf "%-12s %20s\n" "End date:" "$line"
 	fi
 
-	# print the line with the date
-	echo $line
-	
 	# another check to reverse set the variable
 	if [ "$i" = "0" ]
 	then
@@ -248,7 +250,7 @@ then
 	# print the SNI domain
 	echo "Domain with SNI: $snidomain"
 	# print additonal domains
-	[ "$snidomainMD" ] && echo "Covered domains: $snidomainMD"
+	[ "$snidomainMD" ] && echo "Additional domains: $(echo "$snidomainMD" | sed 's/DNS://g' | sed "s/$snidomain//g" | sed 's/^, //g')"
 	echo "----"
 
 	# to set the old ifs at the end
@@ -258,20 +260,17 @@ then
 	# print dates
 	IFS=$'\n'
 	# go through the two lines of dates
-	for line in $snidate
+	for line in $snidateHuman
 	do
 		# check if i is set 0
 		if [ "$i" = "0" ]
 		then
 			# then decide wether to echo start date
-			echo -n "Start date: "
+			printf "%-12s %20s\n" "Start date:" "$line"
 		else
 			# or echo end date
-			echo -n "End date: "
+			printf "%-12s %20s\n" "End date:" "$line"
 		fi
-
-		# print the line with the date
-		echo $line
 		
 		# another check to reverse set the variable
 		if [ "$i" = "0" ]
