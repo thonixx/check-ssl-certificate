@@ -26,8 +26,7 @@ trap 'rm -f "$tmpcrtip" "$tmpcrtsni"' EXIT INT HUP SIGHUP SIGINT SIGTERM
 # OK, now we use getopt from util-linux
 usage ()
 {
-echo " Usage: ${0##*/}	-H/--hostname hostname [-p/--port portnumber]
-		[-h/--help]
+echo " Usage: ${0##*/}	-H/--hostname hostname [-p/--port portnumber] [-h/--help]
 
 Overview:
 	Print which SSL certificate is used for the secure connection to the given host.
@@ -39,7 +38,7 @@ Overview:
 
 	I need help:
 	****
-        -h/--help		this help"
+	-h/--help		this help"
 }
 PARAM=`getopt -o hp:H: --long help,port:,hostname: -- "$@"`
 

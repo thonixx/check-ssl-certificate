@@ -19,8 +19,7 @@ ln -s /path/to/git/check-ssl-certificate/check-ssl-certificate /usr/local/bin/
 
 ### Usage and command options
 ```
-Usage: check-ssl-certificate	-H/--hostname hostname [-p/--port portnumber]
-		[-h/--help]
+Usage: check-ssl-certificate	-H/--hostname hostname [-p/--port portnumber] [-h/--help]
 
 Overview:
 	Print which SSL certificate is used for the secure connection to the given host.
@@ -32,5 +31,5 @@ Overview:
 
 	I need help:
 	****
-        -h/--help		this help
+	-h/--help		this help
 ```
