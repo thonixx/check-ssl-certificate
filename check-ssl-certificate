@@ -26,8 +26,7 @@ trap 'rm -f "$tmpcrtip" "$tmpcrtsni"' EXIT INT HUP SIGHUP SIGINT SIGTERM
 # OK, now we use getopt from util-linux
 usage ()
 {
-echo "
-Usage: ${0##*/}	-H/--hostname hostname [-p/--port portnumber]
+echo " Usage: ${0##*/}	-H/--hostname hostname [-p/--port portnumber]
 		[-h/--help]
 
 Overview:
@@ -40,8 +39,7 @@ Overview:
 
 	I need help:
 	****
-        -h/--help		this help
-"
+        -h/--help		this help"
 }
 PARAM=`getopt -o hp:H: --long help,port:,hostname: -- "$@"`
 
@@ -182,6 +180,22 @@ fi
 # get the certificate CN from certificate on the IP
 ipdomain=$($OPENSSL x509 -in $tmpcrtip -noout -text | grep --color=never "Subject:" | egrep --color=never -o "CN=(.*),*" | sed "s/CN=//" | awk -F/ '{print $1}')
 ipdomainMD=$($OPENSSL x509 -in $tmpcrtip -noout -text | sed -n '/X509v3 Subject Alternative Name/,+1p' | sed -n 's/^\s*//g;2p')
+
+# get certificate serial
+ipSerial=$($OPENSSL x509 -in $tmpcrtip -noout -serial | awk -F= '{print $2}')
+# get certificate serial
+sniSerial=$($OPENSSL x509 -in $tmpcrtsni -noout -serial | awk -F= '{print $2}')
+
+# compare sni/ip cert serial to determine if same cert for sni and ip
+if [ "$ipSerial" == "$sniSerial" ]
+then
+	iponly="true"
+	sameserial="true"
+else
+	iponly="false"
+	sameserial="false"
+fi
+
 # use sni for the common name and certificate
 [ "$iponly" == "false" ] || [ "$nosni" == "false" ] && snidomain=$($OPENSSL x509 -in $tmpcrtsni -noout -text | grep --color=never "Subject:" | egrep --color=never -o "CN=(.*),*" | sed "s/CN=//" | awk -F/ '{print $1}')
 [ "$iponly" == "false" ] || [ "$nosni" == "false" ] && snidomainMD=$($OPENSSL x509 -in $tmpcrtsni -noout -text | sed -n '/X509v3 Subject Alternative Name/,+1p' | sed -n 's/^\s*//g;2p')
@@ -189,7 +203,6 @@ ipdomainMD=$($OPENSSL x509 -in $tmpcrtip -noout -text | sed -n '/X509v3 Subject 
 # get the dates of the certificate
 ipdate=$($OPENSSL x509 -in $tmpcrtip -noout -dates | cut -d = -f 2- | sed "s/^ *//g")
 ipdateHuman=$(echo "$ipdate" | xargs -n 1 -I {} date -d '{}' '+%B %d, %Y (%H:%M %Z)')
-
 # get the dates of the certificate with SNI
 [ "$iponly" == "false" ] && snidate=$($OPENSSL x509 -in $tmpcrtsni -noout -dates | cut -d = -f 2- | sed "s/^ *//g") && snidateHuman=$(echo "$snidate" | xargs -n 1 -I {} date -d '{}' '+%B %d, %Y (%H:%M %Z)')
 
@@ -214,10 +227,10 @@ do
 	if [ "$i" = "0" ]
 	then
 		# then decide wether to echo start date
-		printf "%-12s %20s\n" "Start date:" "$line"
+		printf "%-16s %20s\n" "Start date:" "$line"
 	else
 		# or echo end date
-		printf "%-12s %20s\n" "End date:" "$line"
+		printf "%-16s %20s\n" "End date:" "$line"
 	fi
 
 	# another check to reverse set the variable
@@ -228,6 +241,8 @@ do
 		i="0"
 	fi
 done
+# print serial number
+printf "%-16s %20s\n" "Serial number:" "$ipSerial"
 # set the old ifs
 IFS=$OLDIFS
 
@@ -266,10 +281,10 @@ then
 		if [ "$i" = "0" ]
 		then
 			# then decide wether to echo start date
-			printf "%-12s %20s\n" "Start date:" "$line"
+			printf "%-16s %20s\n" "Start date:" "$line"
 		else
 			# or echo end date
-			printf "%-12s %20s\n" "End date:" "$line"
+			printf "%-16s %20s\n" "End date:" "$line"
 		fi
 		
 		# another check to reverse set the variable
@@ -280,8 +295,15 @@ then
 			i="0"
 		fi
 	done
+	# print serial number
+	printf "%-16s %20s\n" "Serial number:" "$sniSerial"
 	# set the old ifs
 	IFS=$OLDIFS
+elif [ "$sameserial" == "true" ]
+then
+	# print this notice if same certificate for sni and IP
+	echo ""
+	echo "Notice: Same certificate for SNI as for IP."
 fi
 
 # all okay
