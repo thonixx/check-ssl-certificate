@@ -92,11 +92,17 @@ then
 fi
 
 # grep for possible ip in argument
-hostarg="$(echo $hostname | egrep -o "[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}" | head -n 1)"
-# decide if an ip is given already or not
+hostarg="$(echo "$hostname" | egrep -o "(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)" | head -n 1)"
+
+# print notice about non-fqdn input
+[[ -z $(echo -n "${hostname}" | grep -oP "(?=^.{4,255}$)(^((?!-)[a-zA-Z0-9-]{1,63}(?<!-)\.)+[a-zA-Z]{2,63}$)") ]] && echo -e "$(tput setaf 6)Get more accurate results with an $(tput sgr 0 1; tput setaf 6; tput bold)FQDN$(tput sgr0)$(tput setaf 6) hostname.$(tput sgr0)\n"
+
+# check if ip or hostname is given as argument
 if [ -z "$hostarg" ]
 then
-	# get the ip address with command host
+	# this case applies when argument is not an IP
+
+	# get the ip address with host command
 	if [ "$($HOST -t a $hostname | grep "is an alias for ")" ]
 	then
 		# get the final target alias
@@ -114,16 +120,13 @@ then
 		# set the ip which you get from the host command
 		ip="$($HOST -t a $hostname | head -n 1 | grep -Eo "has address [0-9\.]{8,15}" | sed "s/has address //g")"
 	fi
-else
-	ip="$hostarg"
-fi
-
-# check if ip
-if [ "$ip" == "$hostname" ]
-then
-	iponly="true"
-else
+	
+	# define that there is not only IP
 	iponly="false"
+else
+	# this case applies when argument is an IP
+	ip="$hostarg"
+	iponly="true"
 fi
 
 # check if ip exists
@@ -133,14 +136,27 @@ then
 	exit 1
 fi
 
+##########################
+# save certificate to file
+
 # storing the certificate without SNI
 osslIPout=$(timeout 5 $BASH -c "echo 'EOT' | $OPENSSL s_client -connect $ip:$port 2>&1")
 # storing the certificate with SNI
 [ "$iponly" == "false" ] && osslSNIout=$(timeout 5 $BASH -c "echo 'EOT' | $OPENSSL s_client -servername $hostname -connect $hostname:$port 2>&1")
 
+###################################
+# error handling of openssl command
+
 # check if output contains something about refused connection
-if [[ "$osslIPout" =~ .*connect:\ Connection\ refused.* ]] || [[ "$osslSNIout" =~ .*connect:\ Connection\ refused.* ]] || [[ "$osslIPout" =~ .*:error:.* ]] || [[ "$osslSNIout" =~ .*:error:.* ]]
+if [[ "$osslIPout" =~ .*connect:\ Connection\ refused.* ]] ||
+   [[ "$osslSNIout" =~ .*connect:\ Connection\ refused.* ]] ||
+   [[ "$osslIPout" =~ .*:error:.* &&
+      "$(echo "$osslIPout" | egrep ".*:error:.*GET_SERVER_HELLO:reason\(1112\).*")" ]] ||
+   [[ "$osslSNIout" =~ .*:error:.* &&
+      "$(echo "$osslIPout" | egrep ".*:error:.*GET_SERVER_HELLO:reason\(1112\).*")" ]]
 then
+	# this runs if something failed
+
 	# print if connection failed
 	echo -n "$(tput setaf 1)Connection failed or resulted in an error (IP: $ip, Host: "
 	# print ip (and hostname)
@@ -152,9 +168,25 @@ then
 	fi
 	# finish statement
 	echo ", Port: $port)!$(tput sgr0)"
-	[[ -z $(echo -n "${DOMAIN}" | grep -oP "(?=^.{4,255}$)(^((?!-)[a-zA-Z0-9-]{1,63}(?<!-)\.)+[a-zA-Z]{2,63}$)") ]] && echo "$(tput setaf 3)Try again with $(tput sgr 0 1; tput setaf 3; tput bold)FQDN$(tput sgr0)$(tput setaf 3) hostname.$(tput sgr0)"
+	
+	# debug output
+	# WORK IN PROGRESS IN THIS PART
+	echo ""
+	echo "Debug output:"
+	if [[ "$osslIPout" =~ .*:error:.* ]]
+	then
+		echo "$osslIPout" | grep "error"
+	fi
+	if [[ "$osslSNIout" =~ .*:error:.* ]] && [ "$iponly" == "false" ]
+	then
+		echo "$osslSNIout" | grep "error"
+	fi
+
+	# error exit
 	exit 1
 else
+	# this runs if nothing failed
+
 	# if no refused connection, go forward with certificate
 	echo "$osslIPout" | sed -n '/^-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/p' > "$tmpcrtip"
 	echo "$osslSNIout" | sed -n '/^-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/p' > "$tmpcrtsni"
@@ -169,41 +201,52 @@ else
 	if [ "$iponly" == "true" ]
 	then
 		nosni="true"
-	elif [ "$(wc -l $tmpcrtsni | awk '{print $1}' )" -lt 3 ] && [ "$iponly" == "false" ]
+	elif [ "$(wc -l $tmpcrtsni | awk '{print $1}' )" -lt 3 ]
 	then
-                echo "There was no certificate with SNI."
+                nosniMsg="There was no certificate with SNI."
 		nosni="true"
         fi
 fi
 
+###########################
+# common name and alt names
+
 # get the certificate CN from certificate on the IP
-ipdomain=$($OPENSSL x509 -in $tmpcrtip -noout -text | grep --color=never "Subject:" | egrep --color=never -o "CN=(.*),*" | sed "s/CN=//" | awk -F/ '{print $1}')
-ipdomainMD=$($OPENSSL x509 -in $tmpcrtip -noout -text | sed -n '/X509v3 Subject Alternative Name/,+1p' | sed -n 's/^\s*//g;2p')
+ipdomain=$($OPENSSL x509 -in $tmpcrtip -noout -subject | egrep -o "CN=(.*),*" | sed "s/CN=//" | awk -F/ '{print $1}')
+ipdomainMD=$($OPENSSL x509 -in $tmpcrtip -noout -text -certopt no_subject,no_header,no_version,no_serial,no_signame,no_validity,no_subject,no_issuer,no_pubkey,no_sigdump,no_aux | sed -n '/X509v3 Subject Alternative Name/,+1p' | sed -n 's/^\s*//g;2p')
+# use sni for the common name and certificate
+[ "$iponly" == "false" ] && [ "$nosni" == "false" ] && snidomain=$($OPENSSL x509 -in $tmpcrtsni -noout -subject | egrep -o "CN=(.*),*" | sed "s/CN=//" | awk -F/ '{print $1}')
+[ "$iponly" == "false" ] && [ "$nosni" == "false" ] && snidomainMD=$($OPENSSL x509 -in $tmpcrtsni -noout -text -certopt no_subject,no_header,no_version,no_serial,no_signame,no_validity,no_subject,no_issuer,no_pubkey,no_sigdump,no_aux | sed -n '/X509v3 Subject Alternative Name/,+1p' | sed -n 's/^\s*//g;2p')
+
+###############
+# serial number
 
 # get certificate serial
 ipSerial=$($OPENSSL x509 -in $tmpcrtip -noout -serial | awk -F= '{print $2}')
 # get certificate serial
-sniSerial=$($OPENSSL x509 -in $tmpcrtsni -noout -serial | awk -F= '{print $2}')
-
+[ "$iponly" == "false" ] && [ "$nosni" == "false" ] && sniSerial=$($OPENSSL x509 -in $tmpcrtsni -noout -serial | awk -F= '{print $2}')
 # compare sni/ip cert serial to determine if same cert for sni and ip
-if [ "$ipSerial" == "$sniSerial" ]
+if [ "$ipSerial" == "$sniSerial" ] && [ "$sniSerial" ]
 then
 	iponly="true"
 	sameserial="true"
 else
-	iponly="false"
+	# iponly="false"
 	sameserial="false"
 fi
 
-# use sni for the common name and certificate
-[ "$iponly" == "false" ] || [ "$nosni" == "false" ] && snidomain=$($OPENSSL x509 -in $tmpcrtsni -noout -text | grep --color=never "Subject:" | egrep --color=never -o "CN=(.*),*" | sed "s/CN=//" | awk -F/ '{print $1}')
-[ "$iponly" == "false" ] || [ "$nosni" == "false" ] && snidomainMD=$($OPENSSL x509 -in $tmpcrtsni -noout -text | sed -n '/X509v3 Subject Alternative Name/,+1p' | sed -n 's/^\s*//g;2p')
+#####################
+# start and end dates
 
 # get the dates of the certificate
 ipdate=$($OPENSSL x509 -in $tmpcrtip -noout -dates | cut -d = -f 2- | sed "s/^ *//g")
 ipdateHuman=$(echo "$ipdate" | xargs -n 1 -I {} date -d '{}' '+%B %d, %Y (%H:%M %Z)')
 # get the dates of the certificate with SNI
-[ "$iponly" == "false" ] && snidate=$($OPENSSL x509 -in $tmpcrtsni -noout -dates | cut -d = -f 2- | sed "s/^ *//g") && snidateHuman=$(echo "$snidate" | xargs -n 1 -I {} date -d '{}' '+%B %d, %Y (%H:%M %Z)')
+[ "$iponly" == "false" ] && [ "$nosni" == "false" ] && snidate=$($OPENSSL x509 -in $tmpcrtsni -noout -dates | cut -d = -f 2- | sed "s/^ *//g")
+[ "$snidate" ] && snidateHuman=$(echo "$snidate" | xargs -n 1 -I {} date -d '{}' '+%B %d, %Y (%H:%M %Z)')
+
+###############
+# print results
 
 # print the domain without SNI
 echo "Domain on IP: $ipdomain ($ip)"
@@ -303,6 +346,11 @@ then
 	# print this notice if same certificate for sni and IP
 	echo ""
 	echo "Notice: Same certificate for SNI as for IP."
+elif [ "$nosniMsg" ] && [ "$iponly" == "false" ]
+then
+	# print message about no SNI certificate but only when hostname is given
+	echo ""
+	echo "$nosniMsg"
 fi
 
 # all okay
