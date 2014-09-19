@@ -223,8 +223,12 @@ ipdomainMD=$($OPENSSL x509 -in $tmpcrtip -noout -text -certopt no_subject,no_hea
 
 # get certificate serial
 ipSerial=$($OPENSSL x509 -in $tmpcrtip -noout -serial | awk -F= '{print $2}')
+# compare sni/ip cert serial to determine if same cert for sni and ip
+ipSig=$($OPENSSL x509 -in $tmpcrtip -noout -text | grep -Eo "Signature Algorithm:(.*)$" | awk -F: '{print $2}' | sed 's/^\ //g' | head -n 1)
 # get certificate serial
 [ "$iponly" == "false" ] && [ "$nosni" == "false" ] && sniSerial=$($OPENSSL x509 -in $tmpcrtsni -noout -serial | awk -F= '{print $2}')
+# get certificate signature algorithm
+[ "$iponly" == "false" ] && [ "$nosni" == "false" ] && sniSig=$($OPENSSL x509 -in $tmpcrtsni -noout -text | grep -Eo "Signature Algorithm:(.*)$" | awk -F: '{print $2}' | sed 's/^\ //g' | head -n 1)
 # compare sni/ip cert serial to determine if same cert for sni and ip
 if [ "$ipSerial" == "$sniSerial" ] && [ "$sniSerial" ]
 then
@@ -269,10 +273,10 @@ do
 	if [ "$i" = "0" ]
 	then
 		# then decide wether to echo start date
-		printf "%-16s %20s\n" "Start date:" "$line"
+		printf "%-23s %20s\n" "Start date:" "$line"
 	else
 		# or echo end date
-		printf "%-16s %20s\n" "End date:" "$line"
+		printf "%-23s %20s\n" "End date:" "$line"
 	fi
 
 	# another check to reverse set the variable
@@ -283,8 +287,12 @@ do
 		i="0"
 	fi
 done
+
 # print serial number
-printf "%-16s %20s\n" "Serial number:" "$ipSerial"
+printf "%-23s %20s\n" "Serial number:" "$ipSerial"
+# print signature algorithm
+printf "%-23s %20s\n" "Signature Algorithm:" "$ipSig"
+
 # set the old ifs
 IFS=$OLDIFS
 
@@ -323,10 +331,10 @@ then
 		if [ "$i" = "0" ]
 		then
 			# then decide wether to echo start date
-			printf "%-16s %20s\n" "Start date:" "$line"
+			printf "%-23s %20s\n" "Start date:" "$line"
 		else
 			# or echo end date
-			printf "%-16s %20s\n" "End date:" "$line"
+			printf "%-23s %20s\n" "End date:" "$line"
 		fi
 		
 		# another check to reverse set the variable
@@ -337,8 +345,12 @@ then
 			i="0"
 		fi
 	done
+
 	# print serial number
-	printf "%-16s %20s\n" "Serial number:" "$sniSerial"
+	printf "%-23s %20s\n" "Serial number:" "$sniSerial"
+	# print signature algorithm
+	printf "%-23s %20s\n" "Signature Algorithm:" "$sniSig"
+
 	# set the old ifs
 	IFS=$OLDIFS
 elif [ "$sameserial" == "true" ]
