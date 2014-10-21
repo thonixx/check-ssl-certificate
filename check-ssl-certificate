@@ -35,12 +35,13 @@ Overview:
 	****
 	-H/--hostname server	IP address or hostname to connect to
 	-p/--port port number	Port number to connect to (default: 443)
+	--robot			Output parseable date instead of human readable date
 
 	I need help:
 	****
 	-h/--help		this help"
 }
-PARAM=`getopt -o hp:H: --long help,port:,hostname: -- "$@"`
+PARAM=`getopt -o hp:H: --long help,port:,hostname:,robot -- "$@"`
 
 # function valid_ip
 # source: http://www.linuxjournal.com/content/validating-ip-address-bash-script
@@ -67,6 +68,7 @@ while true ; do
         case "$1" in
                 -H|--hostname) hostname="${2}" ; shift 2 ;;
                 -p|--port) port="${2}" ; shift 2 ;;
+                --robot) robot="true"; break ;;
                 -h|--help) usage ; exit 0 ;;
                 --) shift ; break ;;
                 *) echo -e "Some weird error..\nI'm sorry.\nSomething with parameters is going wrong." ; exit 1 ;;
@@ -245,9 +247,17 @@ fi
 # get the dates of the certificate
 ipdate=$($OPENSSL x509 -in $tmpcrtip -noout -dates | cut -d = -f 2- | sed "s/^ *//g")
 ipdateHuman=$(echo "$ipdate" | xargs -n 1 -I {} date -d '{}' '+%B %d, %Y (%H:%M %Z)')
+
+# output parseable date
+test "$robot" == "true" && ipdateHuman="$(echo "$ipdate" | xargs -n 1 -I {} date +'%s' -d'{}')"
+
 # get the dates of the certificate with SNI
 [ "$iponly" == "false" ] && [ "$nosni" == "false" ] && snidate=$($OPENSSL x509 -in $tmpcrtsni -noout -dates | cut -d = -f 2- | sed "s/^ *//g")
 [ "$snidate" ] && snidateHuman=$(echo "$snidate" | xargs -n 1 -I {} date -d '{}' '+%B %d, %Y (%H:%M %Z)')
+
+# output parseable date
+[ "$snidate" ] && test "$robot" == "true" && snidateHuman="$(echo "$snidate" | xargs -n 1 -I {} date +'%s' -d'{}')"
+
 
 ###############
 # print results
