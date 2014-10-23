@@ -36,12 +36,13 @@ Overview:
 	-H/--hostname server	IP address or hostname to connect to
 	-p/--port port number	Port number to connect to (default: 443)
 	--robot			Output parseable date instead of human readable date
+	--print-details		Print X509 certificate details
 
 	I need help:
 	****
 	-h/--help		this help"
 }
-PARAM=`getopt -o hp:H: --long help,port:,hostname:,robot -- "$@"`
+PARAM=`getopt -o hp:H: --long help,port:,hostname:,robot,print-details -- "$@"`
 
 # function valid_ip
 # source: http://www.linuxjournal.com/content/validating-ip-address-bash-script
@@ -69,6 +70,7 @@ while true ; do
                 -H|--hostname) hostname="${2}" ; shift 2 ;;
                 -p|--port) port="${2}" ; shift 2 ;;
                 --robot) robot="true"; break ;;
+                --print-details) printx509="true"; break ;;
                 -h|--help) usage ; exit 0 ;;
                 --) shift ; break ;;
                 *) echo -e "Some weird error..\nI'm sorry.\nSomething with parameters is going wrong." ; exit 1 ;;
@@ -303,6 +305,13 @@ printf "%-23s %20s\n" "Serial number:" "$ipSerial"
 # print signature algorithm
 printf "%-23s %20s\n" "Signature Algorithm:" "$ipSig"
 
+# print certificate
+if [ "$printx509" == "true" ]
+then
+	echo ""
+	cat $tmpcrtip | $OPENSSL x509 -noout -text
+fi
+
 # set the old ifs
 IFS=$OLDIFS
 
@@ -360,6 +369,13 @@ then
 	printf "%-23s %20s\n" "Serial number:" "$sniSerial"
 	# print signature algorithm
 	printf "%-23s %20s\n" "Signature Algorithm:" "$sniSig"
+
+	# print certificate
+	if [ "$printx509" == "true" ]
+	then
+		echo ""
+		cat $tmpcrtsni | $OPENSSL x509 -noout -text
+	fi
 
 	# set the old ifs
 	IFS=$OLDIFS
