@@ -26,16 +26,16 @@ trap 'rm -f "$tmpcrtip" "$tmpcrtsni"' EXIT INT HUP SIGHUP SIGINT SIGTERM
 # OK, now we use getopt from util-linux
 usage ()
 {
-echo " Usage: ${0##*/}	-H/--hostname hostname [-p/--port portnumber] [-h/--help]
+echo "Usage:
+	${0##*/} -H <hostname> [options]
 
-Overview:
+Description:
 	Print which SSL certificate is used for the secure connection to the given host.
 
-	The options:
-	****
+Options:
 	-H/--hostname server	IP address or hostname to connect to
 	-p/--port port number	Port number to connect to (default: 443)
-	--robot			Output parseable date instead of human readable date
+	--robot			Output timestamp instead of human readable date
 	--print-details		Print X509 certificate details
 
 	I need help:

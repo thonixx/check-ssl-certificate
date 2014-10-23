@@ -19,19 +19,21 @@ ln -s /path/to/git/check-ssl-certificate/check-ssl-certificate /usr/local/bin/
 
 ### Usage and command options
 ```
-Usage: check-ssl-certificate	-H/--hostname hostname [-p/--port portnumber] [-h/--help]
+Usage:
+        check-ssl-certificate -H <hostname> [options]
 
-Overview:
-	Print which SSL certificate is used for the secure connection to the given host.
+Description:
+        Print which SSL certificate is used for the secure connection to the given host.
 
-	The options:
-	****
-	-H/--hostname server	IP address or hostname to connect to
-	-p/--port port number	Port number to connect to (default: 443)
+Options:
+        -H/--hostname server    IP address or hostname to connect to
+        -p/--port port number   Port number to connect to (default: 443)
+        --robot                 Output timestamp instead of human readable date
+        --print-details         Print X509 certificate details
 
-	I need help:
-	****
-	-h/--help		this help
+        I need help:
+        ****
+        -h/--help               this help
 ```
 
 ### License
