@@ -34,6 +34,8 @@ Description:
 
 Options:
 	-H/--hostname server	IP address or hostname to connect to
+	-i/--ip IP address	Define a custom IP to connect to
+				In combination with -H and useful when DNS is not yet ready
 	-p/--port port number	Port number to connect to (default: 443)
 	--robot			Output timestamp instead of human readable date
 	--print-details		Print X509 certificate details
@@ -42,7 +44,7 @@ Options:
 	****
 	-h/--help		this help"
 }
-PARAM=`getopt -o hp:H: --long help,port:,hostname:,robot,print-details -- "$@"`
+PARAM=`getopt -o hp:H:i: --long help,port:,hostname:,ip:,robot,print-details -- "$@"`
 
 # function valid_ip
 # source: http://www.linuxjournal.com/content/validating-ip-address-bash-script
@@ -68,6 +70,7 @@ eval set -- "$PARAM"
 while true ; do
         case "$1" in
                 -H|--hostname) hostname="${2}" ; shift 2 ;;
+                -i|--ip) customip="${2}" ; shift 2 ;;
                 -p|--port) port="${2}" ; shift 2 ;;
                 --robot) robot="true"; break ;;
                 --print-details) printx509="true"; break ;;
@@ -102,9 +105,9 @@ hostarg="$(echo "$hostname" | egrep -o "(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.
 [[ -z $(echo -n "${hostname}" | grep -oP "(?=^.{4,255}$)(^((?!-)[a-zA-Z0-9-]{1,63}(?<!-)\.)+[a-zA-Z]{2,63}$)") ]] && echo -e "$(tput setaf 6)Get more accurate results with an $(tput sgr 0 1; tput setaf 6; tput bold)FQDN$(tput sgr0)$(tput setaf 6) hostname.$(tput sgr0)\n"
 
 # check if ip or hostname is given as argument
-if [ -z "$hostarg" ]
+if [ -z "$hostarg" ] && [ -z "$customip" ]
 then
-	# this case applies when argument is not an IP
+	# this case applies when argument is not an IP and no custom IP was requested
 
 	# get the ip address with host command
 	if [ "$($HOST -t a $hostname | grep "is an alias for ")" ]
@@ -127,10 +130,26 @@ then
 	
 	# define that there is not only IP
 	iponly="false"
-else
-	# this case applies when argument is an IP
+elif [ -z "$customip" ]
+then
+	# this case applies when argument is an IP and no custom IP is requested
 	ip="$hostarg"
 	iponly="true"
+elif [ "$customip" ]
+then
+	# this case applies when custom IP was requested
+	ip="$customip"
+	echo "Custom IP requested: $ip"
+	echo
+
+	# define that there is not only IP
+	iponly="false"
+else
+	# this case should never apply
+	# therefore exit and throw error
+	echo "Error while executing script. This should not happen, theoretically."
+	echo "Examine with 'bash -x'."
+	exit 1
 fi
 
 # check if ip exists
@@ -145,8 +164,10 @@ fi
 
 # storing the certificate without SNI
 osslIPout=$(timeout 5 $BASH -c "echo 'EOT' | $OPENSSL s_client -connect $ip:$port 2>&1")
+# storing the certificate with SNI but maybe with a custom IP
+[ "$iponly" == "false" ] && [ "$customip" ] && osslSNIout=$(timeout 5 $BASH -c "echo 'EOT' | $OPENSSL s_client -servername $hostname -connect $customip:$port 2>&1")
 # storing the certificate with SNI
-[ "$iponly" == "false" ] && osslSNIout=$(timeout 5 $BASH -c "echo 'EOT' | $OPENSSL s_client -servername $hostname -connect $hostname:$port 2>&1")
+[ "$iponly" == "false" ] && [ -z "$customip" ] && osslSNIout=$(timeout 5 $BASH -c "echo 'EOT' | $OPENSSL s_client -servername $hostname -connect $hostname:$port 2>&1")
 
 ###################################
 # error handling of openssl command
