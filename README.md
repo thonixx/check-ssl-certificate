@@ -27,6 +27,8 @@ Description:
 
 Options:
         -H/--hostname server    IP address or hostname to connect to
+        -i/--ip IP address      Define a custom IP to connect to
+                                In combination with -H and useful when DNS is not yet ready
         -p/--port port number   Port number to connect to (default: 443)
         --robot                 Output timestamp instead of human readable date
         --print-details         Print X509 certificate details
