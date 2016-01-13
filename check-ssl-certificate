@@ -73,8 +73,8 @@ while true ; do
                 -H|--hostname) hostname="${2}" ; shift 2 ;;
                 -i|--ip) customip="${2}" ; shift 2 ;;
                 -p|--port) port="${2}" ; shift 2 ;;
-                --robot) robot="true"; break ;;
-                --print-details) printx509="true"; break ;;
+                --robot) robot="true"; shift ;;
+                --print-details) printx509="true"; shift ;;
                 -h|--help) usage ; exit 0 ;;
                 --) shift ; break ;;
                 *) echo -e "Some weird error..\nI'm sorry.\nSomething with parameters is going wrong." ; exit 1 ;;
