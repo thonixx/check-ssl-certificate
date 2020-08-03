@@ -54,11 +54,14 @@ Options:
     --print-details
         Print X509 certificate details
 
+    --starttls protocol
+        Use StartTLS (use any protocol supported by openssl (i.e. smtp, imap, ...)
+
     I need help:
     ****
     -h/--help               this help"
 }
-PARAM="$(getopt -o hp:H:i: --long help,port:,hostname:,ip:,robot,print-details,save-details -- "$@")"
+PARAM="$(getopt -o hp:H:i: --long help,port:,hostname:,ip:,robot,print-details,save-details,starttls: -- "$@")"
 
 # function valid_ip
 # source: http://www.linuxjournal.com/content/validating-ip-address-bash-script
@@ -89,6 +92,7 @@ while true ; do
                 --robot) robot='true'; shift ;;
                 --print-details) printx509='true'; shift ;;
                 --save-details) savex509='true'; shift ;;
+                --starttls) starttls="-starttls ${2}"; shift 2 ;;
                 -h|--help) usage ; exit 0 ;;
                 --) shift ; break ;;
                 *) echo -e "Some weird error..\nI'm sorry.\nSomething with parameters is going wrong." ; exit 1 ;;
@@ -192,14 +196,14 @@ fi
 
 # storing the certificate without SNI
 osslIPout="$(
-    timeout 5 ${BASH} -c "echo 'EOT' | ${OPENSSL} s_client -connect ${ip}:${port} 2>&1"
+    timeout 5 ${BASH} -c "echo 'EOT' | ${OPENSSL} s_client ${starttls} -connect ${ip}:${port} 2>&1"
 )"
 
 # storing the certificate with SNI but maybe with a custom IP
 if [ "${iponly}" == 'false' ] && [ "${customip}" ]
 then
     osslSNIout="$(
-        timeout 5 ${BASH} -c "echo 'EOT' | ${OPENSSL} s_client -servername ${hostname} -connect ${customip}:${port} 2>&1"
+        timeout 5 ${BASH} -c "echo 'EOT' | ${OPENSSL} s_client ${starttls} -servername ${hostname} -connect ${customip}:${port} 2>&1"
     )"
 fi
 
@@ -207,7 +211,7 @@ fi
 if [ "$iponly" == 'false' ] && [ -z "${customip}" ]
 then
     osslSNIout="$(
-        timeout 5 ${BASH} -c "echo 'EOT' | ${OPENSSL} s_client -servername ${hostname} -connect ${hostname}:${port} 2>&1"
+        timeout 5 ${BASH} -c "echo 'EOT' | ${OPENSSL} s_client ${starttls} -servername ${hostname} -connect ${hostname}:${port} 2>&1"
     )"
 fi
 
