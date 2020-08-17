@@ -519,6 +519,8 @@ IFS=$'\n'
 if [ "${iponly}" == 'false' ] && [ "${nosni}" == 'false' ]
 then
     # print the SNI domain
+    echo
+    echo
     echo "Domain with SNI: ${snidomain}"
     # print additonal domains
     if [ "$snidomainMD" ]
