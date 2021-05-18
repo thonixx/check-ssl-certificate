@@ -171,8 +171,6 @@ elif [ "${customip}" ]
 then
     # this case applies when custom IP was requested
     ip="${customip}"
-    echo "Custom IP requested: ${ip}"
-    echo
 
     # define that there is not only IP
     iponly='false'
@@ -423,6 +421,20 @@ then
             | xargs -n 1 -I {} date +'%s' -d'{}'
     )"
 fi
+
+###############
+# print input
+
+# check for custom IP
+if [ "${customip}" ]
+then
+    input_customip=" (Custom IP: ${customip})"
+fi
+
+# print
+echo '----'
+echo "Input: ${hostname}${input_customip}"
+echo
 
 ###############
 # print results
