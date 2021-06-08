@@ -423,6 +423,25 @@ then
 fi
 
 ###############
+# issuer
+
+# get certificate serial
+ipIssuer="$(
+    ${OPENSSL} x509 -in "${tmpcrtip}" -noout -issuer \
+        | cut -d= -f 2-
+)"
+
+# get certificate serial
+if [ "$iponly" == 'false' ] && [ "${nosni}" == 'false' ]
+then
+    sniIssuer="$(
+        ${OPENSSL} x509 -in "${tmpcrtsni}" -noout -issuer \
+            | cut -d= -f 2-
+    )"
+fi
+
+
+###############
 # print input
 
 # check for custom IP
@@ -496,6 +515,9 @@ printf '%-23s %20s\n' 'Serial number:' "${ipSerial}"
 
 # print signature algorithm
 printf '%-23s %20s\n' 'Signature Algorithm:' "${ipSig}"
+
+# print issuer
+printf '%-23s %20s\n' 'Issuer:' "${ipIssuer}"
 
 # print certificate
 if [ "${printx509}" == 'true' ]
@@ -584,6 +606,9 @@ then
 
     # print signature algorithm
     printf '%-23s %20s\n' 'Signature Algorithm:' "${sniSig}"
+
+    # print issuer
+    printf '%-23s %20s\n' 'Issuer:' "${sniIssuer}"
 
     # print certificate
     if [ "${printx509}" == 'true' ]
