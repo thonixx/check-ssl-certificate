@@ -194,14 +194,14 @@ fi
 
 # storing the certificate without SNI
 osslIPout="$(
-    timeout 5 ${BASH} -c "echo 'EOT' | ${OPENSSL} s_client ${starttls} -connect ${ip}:${port} 2>&1"
+    timeout 10 ${BASH} -c "echo 'EOT' | ${OPENSSL} s_client ${starttls} -connect ${ip}:${port} 2>&1"
 )"
 
 # storing the certificate with SNI but maybe with a custom IP
 if [ "${iponly}" == 'false' ] && [ "${customip}" ]
 then
     osslSNIout="$(
-        timeout 5 ${BASH} -c "echo 'EOT' | ${OPENSSL} s_client ${starttls} -servername ${hostname} -connect ${customip}:${port} 2>&1"
+        timeout 10 ${BASH} -c "echo 'EOT' | ${OPENSSL} s_client ${starttls} -servername ${hostname} -connect ${customip}:${port} 2>&1"
     )"
 fi
 
@@ -209,7 +209,7 @@ fi
 if [ "$iponly" == 'false' ] && [ -z "${customip}" ]
 then
     osslSNIout="$(
-        timeout 5 ${BASH} -c "echo 'EOT' | ${OPENSSL} s_client ${starttls} -servername ${hostname} -connect ${hostname}:${port} 2>&1"
+        timeout 10 ${BASH} -c "echo 'EOT' | ${OPENSSL} s_client ${starttls} -servername ${hostname} -connect ${hostname}:${port} 2>&1"
     )"
 fi
 
