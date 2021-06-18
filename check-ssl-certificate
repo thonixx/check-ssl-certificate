@@ -459,12 +459,12 @@ echo
 # print results
 
 # print the domain without SNI
-echo "Domain on IP: ${ipdomain} (${ip})"
+echo "(CN) Domain on IP: ${ipdomain} (${ip})"
 
 # print additonal domains
 if [ "${ipdomainMD}" ]
 then
-    echo "Additional domain(s): $(
+    echo "(SAN) Additional domain(s): $(
         echo "${ipdomainMD}" \
             | sed 's/DNS://g' \
             | sed "s/${ipdomain}//g" \
@@ -555,11 +555,11 @@ then
     # print the SNI domain
     echo
     echo
-    echo "Domain with SNI: ${snidomain}"
+    echo "(CN) Domain with SNI: ${snidomain}"
     # print additonal domains
     if [ "$snidomainMD" ]
     then
-        echo "Additional domain(s): $(
+        echo "(SAN) Additional domain(s): $(
             echo "${snidomainMD}" \
                 | sed 's/DNS://g' \
                 | sed "s/${snidomain}//g" \
