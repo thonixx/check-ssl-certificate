@@ -467,7 +467,7 @@ then
     echo "(SAN) Additional domain(s): $(
         echo "${ipdomainMD}" \
             | sed 's/DNS://g' \
-            | sed "s/${ipdomain}//g" \
+            | sed -r "s/(^|(,)? )${ipdomain}\b//g" \
             | sed 's/^, //g'
     )"
 fi
@@ -562,7 +562,7 @@ then
         echo "(SAN) Additional domain(s): $(
             echo "${snidomainMD}" \
                 | sed 's/DNS://g' \
-                | sed "s/${snidomain}//g" \
+                | sed -r "s/(^|(,)? )${snidomain}\b//g" \
                 | sed 's/^, //g'
         )"
     fi
