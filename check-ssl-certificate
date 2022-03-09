@@ -384,7 +384,7 @@ ipdate="$(
 )"
 ipdateHuman="$(
     echo "${ipdate}" \
-        | xargs -n 1 -I {} date -d '{}' '+%B %d, %Y (%H:%M %Z)'
+        | xargs -I {} date -d '{}' '+%B %d, %Y (%H:%M %Z)'
 )"
 
 # output parseable date
@@ -392,7 +392,7 @@ if [ "$robot" == 'true' ]
 then
     ipdateHuman="$(
         echo "${ipdate}" \
-            | xargs -n 1 -I {} date +'%s' -d'{}'
+            | xargs -I {} date +'%s' -d'{}'
     )"
 fi
 
@@ -409,7 +409,7 @@ if [ "${snidate}" ]
 then
     snidateHuman="$(
         echo "${snidate}" \
-            | xargs -n 1 -I {} date -d '{}' '+%B %d, %Y (%H:%M %Z)'
+            | xargs -I {} date -d '{}' '+%B %d, %Y (%H:%M %Z)'
     )"
 fi
 
@@ -418,7 +418,7 @@ if [ "${snidate}" ] && [ "${robot}" == 'true' ]
 then
     snidateHuman="$(
         echo "${snidate}" \
-            | xargs -n 1 -I {} date +'%s' -d'{}'
+            | xargs -I {} date +'%s' -d'{}'
     )"
 fi
 
